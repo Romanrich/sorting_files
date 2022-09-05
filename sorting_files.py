@@ -1,4 +1,4 @@
-import zipfile
+import shutil
 import sys
 import os
 
@@ -57,9 +57,7 @@ def rename_file(folder_to, folder_from, file):
         os.rename(os.path.join(folder_from, file), os.path.join(path_to, normalize(file)))
     else:
         f = normalize(file).split('.')
-        zip_file = zipfile.ZipFile(os.path.join(folder_from, file))
-        zip_file.extractall(os.path.join(path_to, f[0]))
-        zip_file.close()
+        shutil.unpack_archive(os.path.join(folder_from, file), os.path.join(path_to, f[0]), f[1])
         os.remove(os.path.join(folder_from, file))
 
 def normalize(file):
