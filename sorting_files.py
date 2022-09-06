@@ -1,6 +1,7 @@
 import shutil
 import sys
 import os
+from datetime import datetime
 
 def get_dir_name():
     work_dir = ''
@@ -11,9 +12,15 @@ def get_dir_name():
         work_dir = args[1]
     while True:
         if not os.path.exists(work_dir):
+            if work_dir:
+                print(f'{work_dir} is not exist')
             work_dir = input('Enter path to directory: ')
         else:
-            break
+            if os.path.isdir(work_dir):
+                break
+            else:
+                print(f'{work_dir} is not a directory')
+                work_dir = ''
     return work_dir
 
 def read_dir(namedir):
@@ -28,25 +35,28 @@ def is_free_dir(namedir):
         os.path.join(name_folder, 'audio'),
         os.path.join(name_folder, 'archives'),
     )
-    return True if namedir in lists_free_dir else False 
+    return namedir in lists_free_dir
 
 def check_file_type(file):
-    ext = file.split('.')
-    if len(ext) > 1:
-        if ext[len(ext)-1] in ('jpeg', 'png', 'jpg', 'svg'):
+    file_name_arr = file.split('.')
+    file_ext = ''
+    if len(file_name_arr) > 1:
+        file_ext = file_name_arr[-1]
+    if not file_ext:
+        return None
+    else:
+        if file_ext in ('jpeg', 'png', 'jpg', 'svg'):
             return 'images'
-        elif ext[len(ext)-1] in ('avi', 'mp4', 'mov', 'mkv'):
+        elif file_ext in ('avi', 'mp4', 'mov', 'mkv'):
             return 'video'
-        elif ext[len(ext)-1] in ('doc', 'docx', 'txt', 'pdf', 'xls', 'xlsx', 'pptx'):
+        elif file_ext in ('doc', 'docx', 'txt', 'pdf', 'xls', 'xlsx', 'pptx'):
             return 'documents'
-        elif ext[len(ext)-1] in ('mp3', 'ogg', 'mov', 'amr'):
+        elif file_ext in ('mp3', 'ogg', 'mov', 'amr'):
             return 'audio'
-        elif ext[len(ext)-1] in ('zip', 'gz', 'tar'):
+        elif file_ext in ('zip', 'gz', 'tar'):
             return 'archives'
         else:
             return None
-    else:
-        return None
 
 def rename_file(folder_to, folder_from, file):
     global name_folder
@@ -54,13 +64,29 @@ def rename_file(folder_to, folder_from, file):
     if not os.path.exists(path_to):
         os.makedirs(path_to)
     if folder_to != 'archives':
-        os.rename(os.path.join(folder_from, file), os.path.join(path_to, normalize(file)))
+        try:
+            os.rename(os.path.join(folder_from, file), os.path.join(path_to, normalize(file)))
+        except FileExistsError:
+            print(f'File {file} is already exist')
+            while True:
+                is_rewrite = input(f'Do you want to rewrite file {file} (y/n)').lower()
+                if is_rewrite == 'y':
+                    os.replace(os.path.join(folder_from, file), os.path.join(path_to, normalize(file)))
+                    break
+                elif is_rewrite == 'n':
+                    os.rename(os.path.join(folder_from, file), os.path.join(path_to, normalize(file, True)))
+                    break
+
     else:
         f = normalize(file).split('.')
-        shutil.unpack_archive(os.path.join(folder_from, file), os.path.join(path_to, f[0]), f[1])
-        os.remove(os.path.join(folder_from, file))
+        try:
+            shutil.unpack_archive(os.path.join(folder_from, file), os.path.join(path_to, f[0]), f[1])
+        except shutil.ReadError:
+            print(f"Archive {os.path.join(folder_from, file)} can't be unpack")
+        else:
+            os.remove(os.path.join(folder_from, file))
 
-def normalize(file):
+def normalize(file, is_copy = False):
     map = {'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e', 'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 
     'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'h', 
     'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch', 'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya', 'і': 'i',  'є': 'e', 'ї': 'i', 'А': 'A', 
@@ -68,16 +94,18 @@ def normalize(file):
     'М': 'M', 'Н': 'N', 'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F', 'Х': 'H', 'Ц': 'Ts', 'Ч': 'Ch', 
     'Ш': 'Sh', 'Щ': 'Sch', 'Ъ': '', 'Ы': 'Y', 'Ь': '', 'Э': 'E', 'Ю': 'Yu', 'Я': 'Ya', 'І': 'I',  'Є': 'E',  'Ї': 'I'}
     lists = file.split('.')
-    name_file = '.'.join(lists[0:len(lists)-1])
+    name_file = '.'.join(lists[0:-1])
     new_name = ''
     for el in name_file:
-        if el in map.keys():
+        if el in map:
             new_name += map[el]
-        elif (66 <= ord(el) <= 90) or (97 <= ord(el) <= 122) or el.isdigit():
+        elif (ord('A') <= ord(el) <= ord('Z')) or (ord('a') <= ord(el) <= ord('z')) or el.isdigit():
             new_name += el
         else:
             new_name += '_'
-    return new_name + '.' + lists[len(lists)-1]
+    if is_copy:
+        new_name += f'_(copy_{datetime.now().microsecond})'
+    return new_name + '.' + lists[-1]
 
 def sorting_dir(namedir):
     lists = read_dir(namedir)
@@ -94,7 +122,7 @@ def sorting_dir(namedir):
 
 def check_clear_dir(namedir):
     lists = os.listdir(namedir)
-    if len(lists) == 0 and not is_free_dir(namedir):
+    if not lists and not is_free_dir(namedir):
         os.rmdir(namedir)
     else:
         for el in lists:
